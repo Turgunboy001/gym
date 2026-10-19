@@ -1,0 +1,1047 @@
+<!doctype html>
+<html lang="uz">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Kamerali Mashq Sanagich</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap"
+    />
+    <style>
+      /* Layout: one-column phone app. Home lists the exercises and today's totals; the run screen is a camera stage with a big rep count. */
+      :root {
+        --bg: #e9ecef;
+        --surface: #f6f7f8;
+        --fg: #12181e;
+        --muted: #5b6672;
+        --line: #ccd2d8;
+        --accent: #1b53f0;
+        --accent-fg: #ffffff;
+        --good: #14804a;
+        --warn: #c4361f;
+        --f-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+        --f-body: "Barlow", system-ui, sans-serif;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #101418;
+          --surface: #1a2027;
+          --fg: #eef1f4;
+          --muted: #96a1ad;
+          --line: #2b343d;
+          --accent: #6f9bff;
+          --accent-fg: #0b1220;
+          --good: #4cc98a;
+          --warn: #ff7a62;
+          color-scheme: dark;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--f-body);
+        font-size: 16px;
+        line-height: 1.4;
+        padding-block: max(16px, env(safe-area-inset-top, 0px))
+          max(32px, env(safe-area-inset-bottom, 0px));
+        padding-left: max(16px, env(safe-area-inset-left, 0px));
+        padding-right: max(16px, env(safe-area-inset-right, 0px));
+      }
+      main {
+        max-width: 460px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: var(--f-display);
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        margin: 0;
+      }
+      h1 {
+        font-size: 34px;
+        line-height: 1;
+      }
+      h3 {
+        font-size: 24px;
+        line-height: 1.1;
+      }
+      .label {
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 14px;
+        margin: 0;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .btn {
+        min-height: 48px;
+        border-radius: 6px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--fg);
+        font: 600 15px var(--f-body);
+        cursor: pointer;
+        padding: 0 14px;
+      }
+      .btn.main {
+        background: var(--accent);
+        color: var(--accent-fg);
+        border-color: var(--accent);
+        font-family: var(--f-display);
+        font-weight: 800;
+        font-size: 22px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .btn.warn {
+        color: var(--warn);
+        border-color: var(--warn);
+      }
+      .btn:disabled {
+        opacity: 0.5;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .row > .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .between {
+        justify-content: space-between;
+      }
+      :focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 2px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .today {
+        font-family: var(--f-display);
+        font-weight: 700;
+        font-size: 26px;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      input[type="number"],
+      select {
+        min-height: 44px;
+        border-radius: 6px;
+        border: 1px solid var(--line);
+        background: var(--bg);
+        color: var(--fg);
+        font: 600 16px var(--f-body);
+        padding: 0 10px;
+        width: 100%;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .toast {
+        color: var(--good);
+        font-weight: 600;
+        font-size: 14px;
+        margin: 0;
+      }
+      .err {
+        color: var(--warn);
+        font-weight: 600;
+        font-size: 14px;
+        margin: 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        font-variant-numeric: tabular-nums;
+      }
+      th,
+      td {
+        text-align: right;
+        padding: 6px 4px;
+        border-top: 1px solid var(--line);
+      }
+      th:first-child,
+      td:first-child {
+        text-align: left;
+      }
+      th {
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        border-top: 0;
+      }
+      .wrap {
+        overflow-x: auto;
+      }
+
+      /* run screen */
+      .stage {
+        position: relative;
+        background: #000;
+        border-radius: 6px;
+        overflow: hidden;
+        aspect-ratio: 3 / 4;
+        max-height: 62vh;
+        width: 100%;
+        margin: 0 auto;
+      }
+      .stage video,
+      .stage canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .stage.mirror video,
+      .stage.mirror canvas {
+        transform: scaleX(-1);
+      }
+      .hud {
+        position: absolute;
+        left: 12px;
+        top: 10px;
+        color: #fff;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+      }
+      .hud .n {
+        font-family: var(--f-display);
+        font-weight: 800;
+        font-size: 96px;
+        line-height: 0.9;
+        font-variant-numeric: tabular-nums;
+      }
+      .hud .t {
+        font-family: var(--f-display);
+        font-weight: 700;
+        font-size: 24px;
+      }
+      .pill {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 10px;
+        background: rgba(0, 0, 0, 0.6);
+        color: #fff;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 13px;
+      }
+      .over {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: rgba(0, 0, 0, 0.72);
+        color: #fff;
+        text-align: center;
+        padding: 16px;
+      }
+      .over .big {
+        font-family: var(--f-display);
+        font-weight: 800;
+        font-size: 72px;
+        line-height: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section id="home" class="stack">
+        <div style="display: flex; flex-direction: column; gap: 16px">
+          <div>
+            <span class="label">Kamera bilan sanaydi</span>
+            <h1>Mashq sanagich</h1>
+          </div>
+          <p class="toast" id="toast" role="status" hidden></p>
+
+          <div class="card">
+            <div class="field">
+              <label class="label" for="target"
+                >Maqsad (takror, 0 bo'lsa cheksiz)</label
+              >
+              <input
+                id="target"
+                type="number"
+                inputmode="numeric"
+                min="0"
+                max="500"
+                value="0"
+              />
+            </div>
+          </div>
+
+          <div
+            id="list"
+            style="display: flex; flex-direction: column; gap: 12px"
+          ></div>
+
+          <div class="card">
+            <h3>Aylanma mashg'ulot</h3>
+            <p class="meta">
+              O'tirib turish 15 · Sakrash 10 · Press 15 · Push-up 8. Maqsadga
+              yetganda 10 soniya dam, keyin keyingisi o'zi boshlanadi.
+            </p>
+            <div class="field">
+              <label class="label" for="rounds">Raundlar soni</label>
+              <select id="rounds">
+                <option value="2">2 raund</option>
+                <option value="3" selected>3 raund</option>
+                <option value="4">4 raund</option>
+              </select>
+            </div>
+            <button class="btn main" type="button" id="circuit">
+              Aylanmani boshlash
+            </button>
+          </div>
+
+          <div class="card">
+            <span class="label">So'nggi 7 kun</span>
+            <div class="wrap"><table id="hist"></table></div>
+          </div>
+
+          <p class="meta">
+            Telefonni mustahkam qo'ying, butun tanangiz kadrga sig'sin. Kamera
+            tasviri hech qayerga yuborilmaydi, hammasi telefoningizda ishlaydi.
+          </p>
+        </div>
+      </section>
+
+      <section id="run" hidden>
+        <div style="display: flex; flex-direction: column; gap: 12px">
+          <div class="row between">
+            <div class="grow">
+              <span class="label" id="stepLabel"></span>
+              <h3 id="exName"></h3>
+            </div>
+            <button
+              class="btn"
+              type="button"
+              id="flip"
+              aria-label="Kamerani almashtirish"
+            >
+              Kamera ↻
+            </button>
+          </div>
+          <div class="stage" id="stage">
+            <video id="video" playsinline muted></video>
+            <canvas id="canvas"></canvas>
+            <div class="hud">
+              <div class="n" id="cnt">0</div>
+              <div class="t" id="tgt"></div>
+            </div>
+            <div class="pill" id="status">Tayyorlanmoqda...</div>
+            <div class="over" id="over" hidden>
+              <span class="label" style="color: #fff">Dam</span>
+              <div class="big" id="overT">10</div>
+              <div id="overNext"></div>
+            </div>
+          </div>
+          <p class="meta" id="hint"></p>
+          <p class="err" id="err" hidden></p>
+          <div class="row">
+            <button class="btn grow" type="button" id="minus">−1</button>
+            <button class="btn grow" type="button" id="plus">+1</button>
+            <div class="grow">
+              <label
+                class="label"
+                for="sens"
+                style="display: block; margin-bottom: 4px"
+                >Sezgirlik</label
+              >
+              <select id="sens">
+                <option value="easy">Yengil</option>
+                <option value="normal" selected>Normal</option>
+                <option value="hard">Qattiq</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn main" type="button" id="stop">
+            Tugatish va saqlash
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script id="logic">
+      /* Counting logic. Pure functions over MediaPipe pose landmarks (normalized x,y; y grows downward). */
+      window.Logic = (function () {
+        function ang(a, b, c) {
+          var v1x = a.x - b.x,
+            v1y = a.y - b.y,
+            v2x = c.x - b.x,
+            v2y = c.y - b.y;
+          var m = Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y);
+          if (!m) return null;
+          return (
+            (Math.acos(Math.max(-1, Math.min(1, (v1x * v2x + v1y * v2y) / m))) *
+              180) /
+            Math.PI
+          );
+        }
+        function vis(p) {
+          return !!p && (p.visibility === undefined || p.visibility > 0.5);
+        }
+        function avgAngle(lm, trips) {
+          var s = 0,
+            n = 0;
+          for (var i = 0; i < trips.length; i++) {
+            var t = trips[i],
+              a = lm[t[0]],
+              b = lm[t[1]],
+              c = lm[t[2]];
+            if (vis(a) && vis(b) && vis(c)) {
+              var v = ang(a, b, c);
+              if (v != null) {
+                s += v;
+                n++;
+              }
+            }
+          }
+          return n ? s / n : null;
+        }
+        var KNEE = [
+            [23, 25, 27],
+            [24, 26, 28],
+          ],
+          ELBOW = [
+            [11, 13, 15],
+            [12, 14, 16],
+          ],
+          HIP = [
+            [11, 23, 25],
+            [12, 24, 26],
+          ];
+
+        // Rest pose = high angle, effort pose = low angle. A rep counts when the angle returns to rest after dipping below `low`.
+        function angleCounter(trips, low, high) {
+          var phase = "wait",
+            ema = null,
+            last = -1e9;
+          return {
+            update: function (lm, t) {
+              var v = avgAngle(lm, trips);
+              if (v == null) return { value: null, counted: false };
+              ema = ema == null ? v : ema * 0.5 + v * 0.5;
+              var counted = false;
+              if (phase === "wait") {
+                if (ema > high) phase = "up";
+              } else if (phase === "up") {
+                if (ema < low) phase = "down";
+              } else if (ema > high) {
+                phase = "up";
+                if (t - last > 400) {
+                  counted = true;
+                  last = t;
+                }
+              }
+              return { value: ema, counted: counted, phase: phase };
+            },
+          };
+        }
+
+        // Hip height against a slowly adapting standing baseline, scaled by torso length.
+        function jumpCounter() {
+          var base = null,
+            ema = null,
+            phase = "ground",
+            last = -1e9;
+          return {
+            update: function (lm, t) {
+              var hl = lm[23],
+                hr = lm[24],
+                sl = lm[11],
+                sr = lm[12];
+              if (!(vis(hl) && vis(hr) && vis(sl) && vis(sr)))
+                return { value: null, counted: false };
+              var hipY = (hl.y + hr.y) / 2,
+                shY = (sl.y + sr.y) / 2,
+                torso = Math.abs(hipY - shY);
+              if (torso < 0.05) return { value: null, counted: false };
+              ema = ema == null ? hipY : ema * 0.6 + hipY * 0.4;
+              if (base == null) base = ema;
+              var rise = (base - ema) / torso,
+                counted = false;
+              if (phase === "ground") {
+                base = base * 0.95 + ema * 0.05;
+                if (rise > 0.18) phase = "air";
+              } else if (rise < 0.06) {
+                phase = "ground";
+                if (t - last > 350) {
+                  counted = true;
+                  last = t;
+                }
+              }
+              return { value: rise, counted: counted, phase: phase };
+            },
+          };
+        }
+
+        // Arms overhead and feet wide = open. Counts when the body returns to closed.
+        function jackCounter() {
+          var phase = "closed",
+            last = -1e9;
+          return {
+            update: function (lm, t) {
+              var nose = lm[0],
+                wl = lm[15],
+                wr = lm[16],
+                sl = lm[11],
+                sr = lm[12],
+                al = lm[27],
+                ar = lm[28];
+              if (
+                !(
+                  vis(nose) &&
+                  vis(wl) &&
+                  vis(wr) &&
+                  vis(sl) &&
+                  vis(sr) &&
+                  vis(al) &&
+                  vis(ar)
+                )
+              )
+                return { value: null, counted: false };
+              var sw = Math.abs(sl.x - sr.x) || 0.01,
+                feet = Math.abs(al.x - ar.x) / sw;
+              var armsUp = wl.y < nose.y && wr.y < nose.y;
+              var armsDown = wl.y > sl.y && wr.y > sr.y;
+              var counted = false;
+              if (phase === "closed") {
+                if (armsUp && feet > 1.4) phase = "open";
+              } else if (armsDown && feet < 1.2) {
+                phase = "closed";
+                if (t - last > 400) {
+                  counted = true;
+                  last = t;
+                }
+              }
+              return { value: feet, counted: counted, phase: phase };
+            },
+          };
+        }
+
+        var SENS = {
+          easy: { dl: 10, dh: -10 },
+          normal: { dl: 0, dh: 0 },
+          hard: { dl: -10, dh: 5 },
+        };
+        var EXERCISES = {
+          squat: {
+            name: "O'tirib turish",
+            hint: "Telefonni oldingizga qo'ying, butun tana (bosh va oyoqlar) ko'rinsin. Oldinga yoki yonga qarab turing.",
+            unit: "burchak",
+            make: function (s) {
+              return angleCounter(KNEE, 110 + s.dl, 160 + s.dh);
+            },
+          },
+          jump: {
+            name: "Sakrash",
+            hint: "Telefonni uzoqroqqa qo'ying, to'liq bo'yingiz ko'rinsin. Joyingizda balandroq sakrang.",
+            unit: "balandlik",
+            make: function () {
+              return jumpCounter();
+            },
+          },
+          jack: {
+            name: "Jumping jack",
+            hint: "Oldingizga qarab turing, qo'l va oyoqlar to'liq ko'rinsin. Qo'llar boshdan baland, oyoqlar keng ochilsin.",
+            unit: "oyoq kengligi",
+            make: function () {
+              return jackCounter();
+            },
+          },
+          crunch: {
+            name: "Press",
+            hint: "Telefonni yoningizga, yerga qo'ying. Yon tomondan yotib, tizzani bukib, tanani ko'taring. Yelka, bel va tizza ko'rinsin.",
+            unit: "burchak",
+            make: function (s) {
+              return angleCounter(HIP, 100 + s.dl, 125 + s.dh);
+            },
+          },
+          pushup: {
+            name: "Push-up",
+            hint: "Telefonni yoningizga, yerga qo'ying. Yon tomondan turing, yelka, tirsak va bilak ko'rinsin.",
+            unit: "burchak",
+            make: function (s) {
+              return angleCounter(ELBOW, 100 + s.dl, 155 + s.dh);
+            },
+          },
+        };
+        var ORDER = ["squat", "jump", "jack", "crunch", "pushup"];
+        var CIRCUIT = [
+          ["squat", 15],
+          ["jump", 10],
+          ["crunch", 15],
+          ["pushup", 8],
+        ];
+        return {
+          EXERCISES: EXERCISES,
+          ORDER: ORDER,
+          CIRCUIT: CIRCUIT,
+          SENS: SENS,
+        };
+      })();
+    </script>
+
+    <script type="module">
+      const L = window.Logic;
+      const VISION =
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+      const MODEL =
+        "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+      const KEY = "kamera-mashq-v1";
+      const $ = (id) => document.getElementById(id);
+      const MONTHS = [
+        "yanvar",
+        "fevral",
+        "mart",
+        "aprel",
+        "may",
+        "iyun",
+        "iyul",
+        "avgust",
+        "sentabr",
+        "oktabr",
+        "noyabr",
+        "dekabr",
+      ];
+      const LINES = [
+        [11, 12],
+        [11, 13],
+        [13, 15],
+        [12, 14],
+        [14, 16],
+        [11, 23],
+        [12, 24],
+        [23, 24],
+        [23, 25],
+        [25, 27],
+        [24, 26],
+        [26, 28],
+      ];
+
+      let store = { days: {} };
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (raw) {
+          const s = JSON.parse(raw);
+          if (s && s.days) store = s;
+        }
+      } catch (e) {}
+      const saveStore = () => {
+        try {
+          localStorage.setItem(KEY, JSON.stringify(store));
+        } catch (e) {}
+      };
+      const dayKey = (d = new Date()) =>
+        d.getFullYear() +
+        "-" +
+        String(d.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(d.getDate()).padStart(2, "0");
+      const addTotal = (ex, n) => {
+        if (!n) return;
+        const k = dayKey();
+        store.days[k] = store.days[k] || {};
+        store.days[k][ex] = (store.days[k][ex] || 0) + n;
+        saveStore();
+      };
+
+      // ---------- home ----------
+      function renderHome() {
+        const t = store.days[dayKey()] || {};
+        $("list").innerHTML = L.ORDER.map((id) => {
+          const e = L.EXERCISES[id];
+          return `<div class="card"><div class="row between"><h3>${e.name}</h3><span class="today">${t[id] || 0}</span></div><button class="btn main" type="button" data-ex="${id}">Boshlash</button></div>`;
+        }).join("");
+        const rows = [];
+        for (let i = 0; i < 7; i++) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const x = store.days[dayKey(d)] || {};
+          rows.push(
+            `<tr><td>${d.getDate()}-${MONTHS[d.getMonth()]}</td>` +
+              L.ORDER.map((id) => `<td>${x[id] || 0}</td>`).join("") +
+              "</tr>",
+          );
+        }
+        $("hist").innerHTML =
+          "<tr><th>Kun</th>" +
+          L.ORDER.map(
+            (id) => `<th>${L.EXERCISES[id].name.split(" ")[0]}</th>`,
+          ).join("") +
+          "</tr>" +
+          rows.join("");
+      }
+      function toast(msg) {
+        const el = $("toast");
+        el.textContent = msg;
+        el.hidden = !msg;
+      }
+
+      // ---------- run ----------
+      const run = {
+        queue: [],
+        idx: 0,
+        count: 0,
+        totals: {},
+        active: false,
+        facing: "user",
+        counter: null,
+        rest: null,
+        missing: 0,
+        lastVideoTime: -1,
+        raf: 0,
+      };
+      let stream = null,
+        landmarker = null,
+        actx = null,
+        wake = null;
+
+      function beep(f = 880, d = 0.08) {
+        try {
+          actx =
+            actx || new (window.AudioContext || window.webkitAudioContext)();
+          const o = actx.createOscillator(),
+            g = actx.createGain();
+          o.frequency.value = f;
+          g.gain.value = 0.08;
+          o.connect(g);
+          g.connect(actx.destination);
+          o.start();
+          o.stop(actx.currentTime + d);
+        } catch (e) {}
+      }
+      const buzz = (p) => {
+        try {
+          if (navigator.vibrate) navigator.vibrate(p);
+        } catch (e) {}
+      };
+      const setStatus = (s) => {
+        $("status").textContent = s;
+      };
+      const showErr = (s) => {
+        $("err").textContent = s;
+        $("err").hidden = !s;
+      };
+
+      async function openCamera() {
+        if (stream) stream.getTracks().forEach((t) => t.stop());
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
+          throw new Error(
+            "Kamera faqat HTTPS orqali ochilgan sahifada ishlaydi.",
+          );
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: run.facing,
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+          },
+          audio: false,
+        });
+        const v = $("video");
+        v.srcObject = stream;
+        await v.play();
+        $("stage").classList.toggle("mirror", run.facing === "user");
+        $("canvas").width = v.videoWidth || 640;
+        $("canvas").height = v.videoHeight || 480;
+      }
+      async function ensureModel() {
+        if (landmarker) return;
+        setStatus("Model yuklanmoqda (birinchi marta bir necha soniya)...");
+        const vision = await import(VISION + "/vision_bundle.mjs");
+        const fileset = await vision.FilesetResolver.forVisionTasks(
+          VISION + "/wasm",
+        );
+        const opts = (delegate) => ({
+          baseOptions: { modelAssetPath: MODEL, delegate },
+          runningMode: "VIDEO",
+          numPoses: 1,
+        });
+        try {
+          landmarker = await vision.PoseLandmarker.createFromOptions(
+            fileset,
+            opts("GPU"),
+          );
+        } catch (e) {
+          landmarker = await vision.PoseLandmarker.createFromOptions(
+            fileset,
+            opts("CPU"),
+          );
+        }
+      }
+
+      function beginStep(i) {
+        run.idx = i;
+        run.count = 0;
+        run.rest = null;
+        run.credited = false;
+        $("over").hidden = true;
+        const q = run.queue[i],
+          e = L.EXERCISES[q.ex];
+        run.counter = e.make(L.SENS[$("sens").value]);
+        $("exName").textContent = e.name;
+        $("hint").textContent = e.hint;
+        $("stepLabel").textContent =
+          run.queue.length > 1 ? `${i + 1} / ${run.queue.length}` : "Mashq";
+        $("tgt").textContent = q.target ? `/ ${q.target}` : "";
+        $("cnt").textContent = "0";
+      }
+      function bump(n) {
+        const q = run.queue[run.idx];
+        run.count = Math.max(0, run.count + n);
+        $("cnt").textContent = run.count;
+        if (n > 0) {
+          beep();
+          buzz(20);
+        }
+        if (q.target && run.count >= q.target && !run.rest) completeStep();
+      }
+      function completeStep() {
+        const q = run.queue[run.idx];
+        run.credited = true;
+        run.totals[q.ex] = (run.totals[q.ex] || 0) + run.count;
+        beep(1200, 0.25);
+        buzz([120, 60, 120]);
+        if (run.idx + 1 >= run.queue.length) {
+          stopRun("Mashg'ulot tugadi. Natijalar saqlandi.");
+          return;
+        }
+        const next = run.queue[run.idx + 1];
+        run.rest = { end: Date.now() + 10000, next: run.idx + 1 };
+        $("overNext").textContent =
+          "Keyingi: " +
+          L.EXERCISES[next.ex].name +
+          (next.target ? " · " + next.target : "");
+        $("over").hidden = false;
+      }
+      function handle(lm) {
+        const q = run.queue[run.idx];
+        if (run.rest) {
+          const left = Math.ceil((run.rest.end - Date.now()) / 1000);
+          $("overT").textContent = Math.max(0, left);
+          if (left <= 0) beginStep(run.rest.next);
+          return;
+        }
+        if (!lm) {
+          run.missing++;
+          if (run.missing > 20)
+            setStatus("Tanangiz ko'rinmayapti. Telefonni uzoqroq qo'ying.");
+          return;
+        }
+        const r = run.counter.update(lm, performance.now());
+        if (r.value == null) {
+          run.missing++;
+          if (run.missing > 20)
+            setStatus("Kerakli tana qismlari ko'rinmayapti. Hint'ga qarang.");
+          return;
+        }
+        run.missing = 0;
+        setStatus(
+          `${L.EXERCISES[q.ex].unit}: ${r.value.toFixed(r.value > 5 ? 0 : 2)}`,
+        );
+        if (r.counted) bump(1);
+      }
+      function draw(lm) {
+        const c = $("canvas"),
+          g = c.getContext("2d");
+        g.clearRect(0, 0, c.width, c.height);
+        if (!lm) return;
+        g.lineWidth = 4;
+        g.strokeStyle = "#6f9bff";
+        g.fillStyle = "#ffffff";
+        for (const [a, b] of LINES) {
+          const p = lm[a],
+            q = lm[b];
+          if (
+            !p ||
+            !q ||
+            (p.visibility !== undefined && p.visibility < 0.5) ||
+            (q.visibility !== undefined && q.visibility < 0.5)
+          )
+            continue;
+          g.beginPath();
+          g.moveTo(p.x * c.width, p.y * c.height);
+          g.lineTo(q.x * c.width, q.y * c.height);
+          g.stroke();
+        }
+        for (const i of [11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]) {
+          const p = lm[i];
+          if (!p || (p.visibility !== undefined && p.visibility < 0.5))
+            continue;
+          g.beginPath();
+          g.arc(p.x * c.width, p.y * c.height, 5, 0, 7);
+          g.fill();
+        }
+      }
+      function loop() {
+        if (!run.active) return;
+        const v = $("video");
+        if (v.readyState >= 2 && v.currentTime !== run.lastVideoTime) {
+          run.lastVideoTime = v.currentTime;
+          let lm = null;
+          try {
+            const res = landmarker.detectForVideo(v, performance.now());
+            lm = res.landmarks && res.landmarks[0];
+          } catch (e) {}
+          draw(lm);
+          handle(lm);
+        }
+        run.raf = requestAnimationFrame(loop);
+      }
+
+      async function startRun(queue) {
+        run.queue = queue;
+        run.totals = {};
+        run.missing = 0;
+        run.lastVideoTime = -1;
+        toast("");
+        showErr("");
+        $("home").hidden = true;
+        $("run").hidden = false;
+        beep(1, 0.01); // unlock audio inside the tap
+        beginStep(0);
+        try {
+          setStatus("Kamera ochilmoqda...");
+          await openCamera();
+          await ensureModel();
+        } catch (e) {
+          showErr(
+            (e && e.message ? e.message : "Kamera yoki model ochilmadi.") +
+              " Hozircha +1 / −1 tugmalari bilan qo'lda sanashingiz mumkin.",
+          );
+          setStatus("Qo'lda sanash rejimi");
+          run.active = false;
+          return;
+        }
+        run.active = true;
+        setStatus("Tayyor. Boshlang!");
+        try {
+          if (navigator.wakeLock)
+            wake = await navigator.wakeLock.request("screen");
+        } catch (e) {}
+        loop();
+      }
+      function stopRun(msg) {
+        if (run.queue.length && !run.credited && run.count) {
+          const q = run.queue[run.idx];
+          run.totals[q.ex] = (run.totals[q.ex] || 0) + run.count;
+        }
+        run.active = false;
+        cancelAnimationFrame(run.raf);
+        if (stream) {
+          stream.getTracks().forEach((t) => t.stop());
+          stream = null;
+        }
+        try {
+          if (wake) {
+            wake.release();
+            wake = null;
+          }
+        } catch (e) {}
+        let total = 0;
+        for (const k in run.totals) {
+          addTotal(k, run.totals[k]);
+          total += run.totals[k];
+        }
+        run.queue = [];
+        run.count = 0;
+        run.rest = null;
+        $("run").hidden = true;
+        $("home").hidden = false;
+        renderHome();
+        toast(
+          msg ||
+            (total
+              ? `Saqlandi: jami ${total} takror.`
+              : "Hech narsa sanalmadi."),
+        );
+        window.scrollTo(0, 0);
+      }
+
+      // ---------- wiring ----------
+      document.addEventListener("click", (ev) => {
+        const b = ev.target.closest("[data-ex]");
+        if (b) {
+          const t = Math.max(
+            0,
+            Math.min(500, parseInt($("target").value, 10) || 0),
+          );
+          startRun([{ ex: b.getAttribute("data-ex"), target: t }]);
+        }
+      });
+      $("circuit").addEventListener("click", () => {
+        const rounds = parseInt($("rounds").value, 10) || 3,
+          q = [];
+        for (let r = 0; r < rounds; r++)
+          L.CIRCUIT.forEach(([ex, target]) => q.push({ ex, target }));
+        startRun(q);
+      });
+      $("plus").addEventListener("click", () => {
+        if (!run.rest) bump(1);
+      });
+      $("minus").addEventListener("click", () => {
+        if (!run.rest) bump(-1);
+      });
+      $("stop").addEventListener("click", () => stopRun());
+      $("sens").addEventListener("change", () => {
+        if (run.queue.length)
+          run.counter = L.EXERCISES[run.queue[run.idx].ex].make(
+            L.SENS[$("sens").value],
+          );
+      });
+      $("flip").addEventListener("click", async () => {
+        run.facing = run.facing === "user" ? "environment" : "user";
+        try {
+          await openCamera();
+          showErr("");
+        } catch (e) {
+          showErr("Kamerani almashtirib bo'lmadi.");
+        }
+      });
+      renderHome();
+    </script>
+  </body>
+</html>
