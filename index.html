@@ -310,6 +310,23 @@
                 value="0"
               />
             </div>
+            <div class="field">
+              <label class="label" for="weight"
+                >Vazningiz (kg), kaloriya uchun</label
+              >
+              <input
+                id="weight"
+                type="number"
+                inputmode="decimal"
+                min="30"
+                max="250"
+                value="70"
+              />
+            </div>
+            <div class="row between">
+              <span class="label">Bugun sarflangan</span
+              ><span class="today" id="kcalToday">0 kkal</span>
+            </div>
           </div>
 
           <div
@@ -370,6 +387,7 @@
             <div class="hud">
               <div class="n" id="cnt">0</div>
               <div class="t" id="tgt"></div>
+              <div class="t" id="kc"></div>
             </div>
             <div class="pill" id="status">Tayyorlanmoqda...</div>
             <div class="over" id="over" hidden>
@@ -379,6 +397,14 @@
             </div>
           </div>
           <p class="meta" id="hint"></p>
+          <label class="row" style="gap: 10px"
+            ><input
+              type="checkbox"
+              id="voice"
+              style="width: 22px; height: 22px; flex: none"
+            /><span>Ovozli sanash</span></label
+          >
+          <p class="meta" id="voiceNote" hidden></p>
           <p class="err" id="err" hidden></p>
           <div class="row">
             <button class="btn grow" type="button" id="minus">−1</button>
@@ -616,11 +642,75 @@
           ["crunch", 15],
           ["pushup", 8],
         ];
+        var UZ_ONES = [
+          "",
+          "bir",
+          "ikki",
+          "uch",
+          "to'rt",
+          "besh",
+          "olti",
+          "yetti",
+          "sakkiz",
+          "to'qqiz",
+        ];
+        var UZ_TENS = [
+          "",
+          "o'n",
+          "yigirma",
+          "o'ttiz",
+          "qirq",
+          "ellik",
+          "oltmish",
+          "yetmish",
+          "sakson",
+          "to'qson",
+        ];
+        function uzNum(n) {
+          if (n <= 0) return "nol";
+          if (n >= 1000) return String(n);
+          var out = [];
+          if (n >= 100) {
+            var h = Math.floor(n / 100);
+            out.push(h > 1 ? UZ_ONES[h] + " yuz" : "yuz");
+            n %= 100;
+          }
+          if (n >= 10) {
+            out.push(UZ_TENS[Math.floor(n / 10)]);
+            n %= 10;
+          }
+          if (n > 0) out.push(UZ_ONES[n]);
+          return out.join(" ");
+        }
+        // Approximate MET values (Compendium of Physical Activities, rounded). kcal = MET x kg x hours of real work.
+        var MET = {
+          squat: 5.0,
+          jump: 8.0,
+          jack: 8.0,
+          crunch: 3.8,
+          pushup: 3.8,
+        };
+        function activeSeconds(times) {
+          var n = times.length;
+          if (!n) return 0;
+          if (n === 1) return 3;
+          var s = 0;
+          for (var i = 1; i < n; i++)
+            s += Math.min(times[i] - times[i - 1], 6000); // long pauses between reps do not count
+          return (s + s / (n - 1)) / 1000;
+        }
+        function kcal(met, kg, times) {
+          return (met * kg * activeSeconds(times)) / 3600;
+        }
         return {
           EXERCISES: EXERCISES,
           ORDER: ORDER,
           CIRCUIT: CIRCUIT,
           SENS: SENS,
+          MET: MET,
+          uzNum: uzNum,
+          kcal: kcal,
+          activeSeconds: activeSeconds,
         };
       })();
     </script>
@@ -662,12 +752,17 @@
         [26, 28],
       ];
 
-      let store = { days: {} };
+      let store = { days: {}, kcal: {}, kg: 70, voice: true };
       try {
         const raw = localStorage.getItem(KEY);
         if (raw) {
           const s = JSON.parse(raw);
-          if (s && s.days) store = s;
+          if (s && s.days) {
+            store = s;
+            store.kcal = store.kcal || {};
+            store.kg = store.kg || 70;
+            store.voice = store.voice !== false;
+          }
         }
       } catch (e) {}
       const saveStore = () => {
@@ -681,6 +776,12 @@
         String(d.getMonth() + 1).padStart(2, "0") +
         "-" +
         String(d.getDate()).padStart(2, "0");
+      const addKcal = (v) => {
+        if (!v) return;
+        const k = dayKey();
+        store.kcal[k] = (store.kcal[k] || 0) + v;
+        saveStore();
+      };
       const addTotal = (ex, n) => {
         if (!n) return;
         const k = dayKey();
@@ -704,7 +805,7 @@
           rows.push(
             `<tr><td>${d.getDate()}-${MONTHS[d.getMonth()]}</td>` +
               L.ORDER.map((id) => `<td>${x[id] || 0}</td>`).join("") +
-              "</tr>",
+              `<td>${Math.round(store.kcal[dayKey(d)] || 0)}</td></tr>`,
           );
         }
         $("hist").innerHTML =
@@ -712,8 +813,11 @@
           L.ORDER.map(
             (id) => `<th>${L.EXERCISES[id].name.split(" ")[0]}</th>`,
           ).join("") +
-          "</tr>" +
+          "<th>kkal</th></tr>" +
           rows.join("");
+        $("kcalToday").textContent =
+          Math.round(store.kcal[dayKey()] || 0) + " kkal";
+        $("weight").value = store.kg;
       }
       function toast(msg) {
         const el = $("toast");
@@ -727,6 +831,8 @@
         idx: 0,
         count: 0,
         totals: {},
+        times: [],
+        kcal: 0,
         active: false,
         facing: "user",
         counter: null,
@@ -759,6 +865,57 @@
           if (navigator.vibrate) navigator.vibrate(p);
         } catch (e) {}
       };
+      // ---------- voice ----------
+      const hasSpeech =
+        "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+      const uzVoice = () => {
+        if (!hasSpeech) return null;
+        return (
+          speechSynthesis.getVoices().find((v) => /^uz/i.test(v.lang)) || null
+        );
+      };
+      function speak(text, voice) {
+        const u = new SpeechSynthesisUtterance(text);
+        if (voice) {
+          u.voice = voice;
+          u.lang = voice.lang;
+        }
+        u.rate = 1.05;
+        speechSynthesis.cancel();
+        speechSynthesis.speak(u);
+      }
+      // Returns true if a count was spoken, so the caller can fall back to a beep.
+      function sayCount(n) {
+        if (!hasSpeech || !store.voice) return false;
+        const v = uzVoice();
+        speak(v ? L.uzNum(n) : String(n), v);
+        return true;
+      }
+      // Words are spoken only with an Uzbek voice; a foreign voice would mangle them.
+      function sayText(t) {
+        const v = uzVoice();
+        if (!hasSpeech || !store.voice || !v) return;
+        speak(t, v);
+      }
+      function unlockSpeech() {
+        if (!hasSpeech) return;
+        const u = new SpeechSynthesisUtterance(" ");
+        u.volume = 0;
+        speechSynthesis.speak(u);
+      }
+      function updateVoiceNote() {
+        const n = $("voiceNote");
+        if (!hasSpeech) {
+          n.textContent = "Brauzeringiz ovozli sanashni qo'llamaydi.";
+          n.hidden = false;
+        } else if (!uzVoice()) {
+          n.textContent =
+            "Telefoningizda o'zbekcha ovoz topilmadi, raqamlar standart ovozda aytiladi. Telefonning matndan nutqqa (text-to-speech) sozlamasida o'zbek tili bo'lsa, o'sha ishlatiladi.";
+          n.hidden = false;
+        } else n.hidden = true;
+      }
+      if (hasSpeech) speechSynthesis.onvoiceschanged = updateVoiceNote;
+
       const setStatus = (s) => {
         $("status").textContent = s;
       };
@@ -818,6 +975,7 @@
         run.count = 0;
         run.rest = null;
         run.credited = false;
+        run.times = [];
         $("over").hidden = true;
         const q = run.queue[i],
           e = L.EXERCISES[q.ex];
@@ -828,13 +986,23 @@
           run.queue.length > 1 ? `${i + 1} / ${run.queue.length}` : "Mashq";
         $("tgt").textContent = q.target ? `/ ${q.target}` : "";
         $("cnt").textContent = "0";
+        $("kc").textContent = run.kcal
+          ? "≈ " + Math.round(run.kcal) + " kkal"
+          : "";
+        if (i > 0) setTimeout(() => sayText("Boshlang"), 200);
       }
+      const stepKcal = () =>
+        L.kcal(L.MET[run.queue[run.idx].ex], store.kg, run.times);
       function bump(n) {
         const q = run.queue[run.idx];
+        if (n > 0) run.times.push(Date.now());
+        else if (n < 0 && run.count > 0) run.times.pop();
         run.count = Math.max(0, run.count + n);
         $("cnt").textContent = run.count;
+        $("kc").textContent =
+          "≈ " + Math.round(run.kcal + stepKcal()) + " kkal";
         if (n > 0) {
-          beep();
+          if (!sayCount(run.count)) beep();
           buzz(20);
         }
         if (q.target && run.count >= q.target && !run.rest) completeStep();
@@ -842,6 +1010,7 @@
       function completeStep() {
         const q = run.queue[run.idx];
         run.credited = true;
+        run.kcal += stepKcal();
         run.totals[q.ex] = (run.totals[q.ex] || 0) + run.count;
         beep(1200, 0.25);
         buzz([120, 60, 120]);
@@ -856,6 +1025,11 @@
           L.EXERCISES[next.ex].name +
           (next.target ? " · " + next.target : "");
         $("over").hidden = false;
+        setTimeout(
+          () =>
+            sayText("Dam oling. Keyingi mashq: " + L.EXERCISES[next.ex].name),
+          1000,
+        );
       }
       function handle(lm) {
         const q = run.queue[run.idx];
@@ -937,11 +1111,20 @@
         run.totals = {};
         run.missing = 0;
         run.lastVideoTime = -1;
+        run.kcal = 0;
+        const kg = parseFloat($("weight").value);
+        if (kg >= 30 && kg <= 250) {
+          store.kg = kg;
+          saveStore();
+        }
         toast("");
         showErr("");
         $("home").hidden = true;
         $("run").hidden = false;
         beep(1, 0.01); // unlock audio inside the tap
+        unlockSpeech();
+        $("voice").checked = store.voice;
+        updateVoiceNote();
         beginStep(0);
         try {
           setStatus("Kamera ochilmoqda...");
@@ -968,6 +1151,7 @@
         if (run.queue.length && !run.credited && run.count) {
           const q = run.queue[run.idx];
           run.totals[q.ex] = (run.totals[q.ex] || 0) + run.count;
+          run.kcal += stepKcal();
         }
         run.active = false;
         cancelAnimationFrame(run.raf);
@@ -986,16 +1170,20 @@
           addTotal(k, run.totals[k]);
           total += run.totals[k];
         }
+        addKcal(run.kcal);
+        const kc = Math.round(run.kcal);
         run.queue = [];
         run.count = 0;
         run.rest = null;
+        run.kcal = 0;
+        run.times = [];
         $("run").hidden = true;
         $("home").hidden = false;
         renderHome();
         toast(
-          msg ||
+          (msg ? msg + " " : "") +
             (total
-              ? `Saqlandi: jami ${total} takror.`
+              ? `Jami ${total} takror, taxminan ${kc} kkal sarfladingiz.`
               : "Hech narsa sanalmadi."),
         );
         window.scrollTo(0, 0);
@@ -1018,6 +1206,11 @@
         for (let r = 0; r < rounds; r++)
           L.CIRCUIT.forEach(([ex, target]) => q.push({ ex, target }));
         startRun(q);
+      });
+      $("voice").addEventListener("change", () => {
+        store.voice = $("voice").checked;
+        saveStore();
+        if (!store.voice && hasSpeech) speechSynthesis.cancel();
       });
       $("plus").addEventListener("click", () => {
         if (!run.rest) bump(1);
